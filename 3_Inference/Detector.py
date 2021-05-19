@@ -168,6 +168,12 @@ if __name__ == "__main__":
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
+    print(FLAGS.model_path)
+    print(FLAGS.anchors_path)
+    print(FLAGS.classes_path)
+    print(FLAGS.score)
+    print(FLAGS.gpu_num)
+
     # define YOLO detector
     yolo = YOLO(
         **{

@@ -146,8 +146,8 @@ class YOLO(object):
             )
             boxed_image = letterbox_image(image, new_image_size)
         image_data = np.array(boxed_image, dtype="float32")
-        if show_stats:
-            print(image_data.shape)
+        # if show_stats:
+        #     print(image_data.shape)
         image_data /= 255.0
         image_data = np.expand_dims(image_data, 0)  # Add batch dimension.
 
@@ -159,15 +159,15 @@ class YOLO(object):
                 K.learning_phase(): 0,
             },
         )
-        if show_stats:
-            print("Found {} boxes for {}".format(len(out_boxes), "img"))
+        # if show_stats:
+        #     print("Found {} boxes for {}".format(len(out_boxes), "img"))
         out_prediction = []
 
-        font_path = os.path.join(os.path.dirname(__file__), "font/FiraMono-Medium.otf")
-        font = ImageFont.truetype(
-            font=font_path, size=np.floor(3e-2 * image.size[1] + 0.5).astype("int32")
-        )
-        thickness = (image.size[0] + image.size[1]) // 300
+        # font_path = os.path.join(os.path.dirname(__file__), "font/FiraMono-Medium.otf")
+        # font = ImageFont.truetype(
+        #     font=font_path, size=np.floor(3e-2 * image.size[1] + 0.5).astype("int32")
+        # )
+        # thickness = (image.size[0] + image.size[1]) // 300
 
         for i, c in reversed(list(enumerate(out_classes))):
             predicted_class = self.class_names[c]
@@ -175,8 +175,8 @@ class YOLO(object):
             score = out_scores[i]
 
             label = "{} {:.2f}".format(predicted_class, score)
-            draw = ImageDraw.Draw(image)
-            label_size = draw.textsize(label, font)
+            # draw = ImageDraw.Draw(image)
+            # label_size = draw.textsize(label, font)
 
             top, left, bottom, right = box
             top = max(0, np.floor(top + 0.5).astype("int32"))
@@ -189,33 +189,33 @@ class YOLO(object):
             # lowering confidence threshold to 0.01)
             if top > image.size[1] or right > image.size[0]:
                 continue
-            if show_stats:
-                print(label, (left, top), (right, bottom))
+            # if show_stats:
+            #     print(label, (left, top), (right, bottom))
 
             # output as xmin, ymin, xmax, ymax, class_index, confidence
             out_prediction.append([left, top, right, bottom, c, score])
 
-            if top - label_size[1] >= 0:
-                text_origin = np.array([left, top - label_size[1]])
-            else:
-                text_origin = np.array([left, bottom])
+            # if top - label_size[1] >= 0:
+            #     text_origin = np.array([left, top - label_size[1]])
+            # else:
+            #     text_origin = np.array([left, bottom])
 
-            # My kingdom for a good redistributable image drawing library.
-            for i in range(thickness):
-                draw.rectangle(
-                    [left + i, top + i, right - i, bottom - i], outline=self.colors[c]
-                )
-            draw.rectangle(
-                [tuple(text_origin), tuple(text_origin + label_size)],
-                fill=self.colors[c],
-            )
+        #     # My kingdom for a good redistributable image drawing library.
+        #     for i in range(thickness):
+        #         draw.rectangle(
+        #             [left + i, top + i, right - i, bottom - i], outline=self.colors[c]
+        #         )
+        #     draw., outline=self.colors[c](
+        #         [tuple(text_origin), tuple(text_origin + label_size)],
+        #         fill=self.colors[c],
+        #     )
 
-            draw.text(text_origin, label, fill=(0, 0, 0), font=font)
-            del draw
+        #     draw.text(text_origin, label, fill=(0, 0, 0), font=font)
+        #     del draw
 
-        end = timer()
-        if show_stats:
-            print("Time spent: {:.3f}sec".format(end - start))
+        # end = timer()
+        # if show_stats:
+        #      print("Time spent: {:.3f}sec".format(end - start))
         return out_prediction, image
 
     def close_session(self):
