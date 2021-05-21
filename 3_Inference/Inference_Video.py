@@ -84,7 +84,8 @@ while(True):
     time_now = time.time() - time_start
     second = time_now
     #print(prediction)
-    print(second)
+    #print(second)
+
     for object_detected in prediction:
         object_name = class_list[object_detected[4]]
             
@@ -93,61 +94,27 @@ while(True):
             x_width = (object_detected[2] - object_detected[0])
             y_width = (object_detected[3] - object_detected[1])
 
-            # Door = np.array(new_image[object_detected[1]:object_detected[3],object_detected[0]:object_detected[2]])
+            Door = np.array(frame[object_detected[1]:object_detected[3],object_detected[0]:object_detected[2]])
 
-            # Door = cv2.blur(Door,(11,11))
-            # Door = cv2.cvtColor(Door, cv2.COLOR_BGR2GRAY)
-            # _, Gray = cv2.threshold(Door, 20, 255, cv2.THRESH_BINARY_INV)
+            #Door = cv2.blur(Door,(11,11))
+            #Door = cv2.cvtColor(Door, cv2.COLOR_BGR2GRAY)
+            #_, Gray = cv2.threshold(Door, 20, 255, cv2.THRESH_BINARY_INV)
 
-            # cv2.imshow('Gray', Gray)     
-            # cv2.imwrite('Gray.jpg', Door)     
+            #cv2.imshow('Gray', Gray)     
 
-            
-            cv2.circle(new_image, (object_detected[0], int(object_detected[1])),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (object_detected[0], int(object_detected[1]+y_width/4)),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (object_detected[0], int(object_detected[1]+2*y_width/4)),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (object_detected[0], int(object_detected[1]+3*y_width/4)),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (object_detected[0], int(object_detected[1]+y_width)),7 , (170, 170, 170), -1)
+            cv2.imwrite('temp\Door{}.jpg'.format(second), Door)     
 
-            cv2.circle(new_image, (int(object_detected[0]+x_width/2), int(object_detected[1])),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (int(object_detected[0]+x_width/2), int(object_detected[1]+y_width/4)),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (int(object_detected[0]+x_width/2), int(object_detected[1]+2*y_width/4)),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (int(object_detected[0]+x_width/2), int(object_detected[1]+3*y_width/4)),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (int(object_detected[0]+x_width/2), int(object_detected[1]+y_width)),7 , (170, 170, 170), -1)
-            
-            cv2.circle(new_image, (int(object_detected[0]+x_width), int(object_detected[1])),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (int(object_detected[0]+x_width), int(object_detected[1]+y_width/4)),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (int(object_detected[0]+x_width), int(object_detected[1]+2*y_width/4)),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (int(object_detected[0]+x_width), int(object_detected[1]+3*y_width/4)),7 , (170, 170, 170), -1)
-            cv2.circle(new_image, (int(object_detected[0]+x_width), int(object_detected[1]+y_width)),7 , (170, 170, 170), -1)
-        
-            if(second >= 72):
-                cv2.circle(new_image, (object_detected[0], int(object_detected[1])),7 , (0, 255, 0), -1)
-            if(second >= 73):                                
-                cv2.circle(new_image, (object_detected[0], int(object_detected[1]+y_width/4)),7 , (0, 255, 0), -1)
-            if(second >= 74):
-                cv2.circle(new_image, (object_detected[0], int(object_detected[1]+2*y_width/4)),7 , (0, 255, 0), -1)
-            if(second >= 75):                
-                cv2.circle(new_image, (object_detected[0], int(object_detected[1]+3*y_width/4)),7 , (0, 255, 0), -1)
-            if(second >= 76):                
-                cv2.circle(new_image, (object_detected[0], int(object_detected[1]+y_width)),7 , (0, 255, 0), -1)
-
-            if(second >= 78):   
-                cv2.circle(new_image, (int(object_detected[0]+x_width), int(object_detected[1])),7 , (0, 255, 0), -1)
-            if(second >= 79):                   
-                cv2.circle(new_image, (int(object_detected[0]+x_width), int(object_detected[1]+y_width/4)),7 , (0, 255, 0), -1)
-            if(second >= 80):                                   
-                cv2.circle(new_image, (int(object_detected[0]+x_width), int(object_detected[1]+2*y_width/4)),7 , (0, 255, 0), -1)
-            if(second >= 81):                                   
-                cv2.circle(new_image, (int(object_detected[0]+x_width), int(object_detected[1]+3*y_width/4)),7 , (0, 255, 0), -1)
-            if(second >= 82):                                   
-                cv2.circle(new_image, (int(object_detected[0]+x_width), int(object_detected[1]+y_width)),7 , (0, 255, 0), -1)
-            
         elif(object_name == 'Wheel'):
             cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 0, 255), 2)
             center_x = (object_detected[0] + object_detected[2])//2
             center_y = (object_detected[1] + object_detected[3])//2
             cv2.circle(new_image, (center_x, center_y),10 , (0, 0, 255), -1)
+
+        elif(object_name == 'SideGlass'):
+            cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 255, 0), 2)
+            center_x = (object_detected[0] + object_detected[2])//2
+            center_y = (object_detected[1] + object_detected[3])//2
+            cv2.circle(new_image, (center_x, center_y),10 , (0, 0, 255), -1)            
 
   
 
