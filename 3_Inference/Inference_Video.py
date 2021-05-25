@@ -70,8 +70,8 @@ inspection_pts = {
 #image = Image.open('00001.jpg')
 #prediction, new_image = yolo.detect_image(image)
 
-cap = cv2.VideoCapture('Car_Trim.mp4')
-
+cap = cv2.VideoCapture('Car.mp4')
+cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 time_start =  time.time()
 
 while(True):
@@ -86,6 +86,9 @@ while(True):
     #print(prediction)
     #print(second)
 
+    Door_List = []
+
+    # output as xmin, ymin, xmax, ymax, class_index, confidence
     for object_detected in prediction:
         object_name = class_list[object_detected[4]]
             
@@ -95,14 +98,14 @@ while(True):
             y_width = (object_detected[3] - object_detected[1])
 
             Door = np.array(frame[object_detected[1]:object_detected[3],object_detected[0]:object_detected[2]])
-
+            Door_List.append(object_detected)
             #Door = cv2.blur(Door,(11,11))
             #Door = cv2.cvtColor(Door, cv2.COLOR_BGR2GRAY)
             #_, Gray = cv2.threshold(Door, 20, 255, cv2.THRESH_BINARY_INV)
 
             #cv2.imshow('Gray', Gray)     
 
-            cv2.imwrite('temp\Door{}.jpg'.format(second), Door)     
+            #cv2.imwrite('temp\Door{}.jpg'.format(second), Door)     
 
         elif(object_name == 'Wheel'):
             cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 0, 255), 2)
@@ -116,9 +119,17 @@ while(True):
             center_y = (object_detected[1] + object_detected[3])//2
             cv2.circle(new_image, (center_x, center_y),10 , (0, 0, 255), -1)            
 
-  
-
-
+    # if find some door
+    if(len(Door_List)):
+        x_min = min(Door_List, key=lambda x: x[0])[0]
+        y_min = min(Door_List, key=lambda x: x[1])[1]
+        x_max = max(Door_List, key=lambda x: x[2])[2]
+        y_max = max(Door_List, key=lambda x: x[3])[3]
+        #print(x_min," ", y_min, "", x_max," ", y_max)
+        cv2.rectangle(new_image, (x_min, y_min), (x_max, y_max), (0, 255, 255), 5)
+        Door = np.array(frame[y_min:y_max,x_min:x_max])
+        cv2.imwrite('temp\Door{}.jpg'.format(second), Door)
+            
 
     cv2.imshow('frame', new_image)
     # 若按下 q 鍵則離開迴圈
