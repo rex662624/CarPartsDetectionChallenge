@@ -213,7 +213,6 @@ def yolo_boxes_and_scores(feats, anchors, num_classes, input_shape, image_shape)
     box_scores = K.reshape(box_scores, [-1, num_classes])
     return boxes, box_scores
 
-
 def yolo_eval(
     yolo_outputs,
     anchors,
