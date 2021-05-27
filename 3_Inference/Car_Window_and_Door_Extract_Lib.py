@@ -2,19 +2,22 @@ import cv2 as cv
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-%matplotlib inline
 
 def process_the_image(original_image):
-    draw_image = original_image.copy()
+    #draw_image = original_image.copy()
     contour_img_car_window = preprocessing_the_car_window(original_image.copy())
-    draw_image, door_guided_image = draw_contour_of_the_car_window(draw_image, contour_img_car_window)
-    draw_image, door_guided_image = preprocessing_the_car_door(draw_image, door_guided_image)
+    door_guided_image, window_contour_list, success_fail = draw_contour_of_the_car_window(contour_img_car_window)
+    door_contour_list = []
+    if(success_fail==0):
+        door_contour_list = preprocessing_the_car_door(door_guided_image)
 
-    return draw_image
+    return window_contour_list, door_contour_list
 
 
 
-def preprocessing_the_car_door(draw_image, door_guided_image):
+def preprocessing_the_car_door(door_guided_image):
+    door_contour_list = []
+    
     contours, hierarchy = cv.findContours(door_guided_image, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     area_threshold = 10000
     center_of_image = np.array((door_guided_image.shape[1]//2 ,door_guided_image.shape[0]//2))
@@ -30,10 +33,10 @@ def preprocessing_the_car_door(draw_image, door_guided_image):
             index_of_contour.append(i)
     dist = np.linalg.norm(center_of_image - centerpoint_of_contour, axis=1)
     door_index = np.argmin(dist)
-    cv.drawContours(draw_image, contours, index_of_contour[door_index], (255,255,0), -1)
+    #cv.drawContours(draw_image, contours, index_of_contour[door_index], (255,255,0), -1)
     #cv.circle(draw_image, center_of_image, 20, (255, 255, 255), -1)
-    
-    return draw_image, door_guided_image
+    door_contour_list.append(contours[index_of_contour[door_index]])
+    return door_contour_list
 
 def preprocessing_the_car_window(image):
     image = cv.blur(image,(5,5))
@@ -41,7 +44,7 @@ def preprocessing_the_car_window(image):
     h = np.mean(image[:,:,0])
     s = np.mean(image[:,:,1])
     v = np.mean(image[:,:,2])
-    print("mean hsv", h, " ", s, " ",v)
+    #print("mean hsv", h, " ", s, " ",v)
     #image = cv.inRange(image, (15, 7, 0), (135, 204, 24))
     
     #=====深色車 淺色車分開處理
@@ -63,7 +66,10 @@ def preprocessing_the_car_window(image):
 
 
 #找到車窗線
-def draw_contour_of_the_car_window(original_img, contour_img):
+def draw_contour_of_the_car_window(contour_img):
+    
+    window_contour_list = []
+    
     door_guided_image = np.ones_like(contour_img, dtype=np.uint8)
     
     contours, hierarchy = cv.findContours(contour_img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
@@ -72,8 +78,8 @@ def draw_contour_of_the_car_window(original_img, contour_img):
     window_threshold = 10000
     window_extRight_list = []
     window_extLeft_list = []
-    door_bottom = [None,2**32]#contour,Cx,Cy
-    Left_Bottom_of_image = np.array([0, original_img.shape[0]])
+    door_bottom = [[],2**32]#contour,Cx,Cy
+    Left_Bottom_of_image = np.array([0, contour_img.shape[0]])
     for i in range(len(contours)):
         area = cv.contourArea(contours[i])
         
@@ -97,7 +103,7 @@ def draw_contour_of_the_car_window(original_img, contour_img):
             if(cY<100):
                 continue
                 
-            elif(cY>original_img.shape[0]/2):#地板
+            elif(cY>contour_img.shape[0]/2):#地板
                 
                 #和左下角的距離最小的那個就是
                 boundRect = cv.boundingRect(contours[i])
@@ -118,9 +124,11 @@ def draw_contour_of_the_car_window(original_img, contour_img):
                 #cv.drawContours(original_img, contours, i, (0,0,255), -1)
                 hull_list = []
                 hull_list.append(cv.convexHull(contours[i]))
-                cv.drawContours(original_img, hull_list, 0, (0,0,255), -1)
                 
+                #cv.drawContours(original_img, hull_list, 0, (0,0,255), -1)
+                window_contour_list.append(hull_list[0])
                 cv.drawContours(door_guided_image, hull_list, 0, (0, 0, 0), -1)
+                
                 #=====找車窗最右邊的點
                 #x,y,w,h = cv.boundingRect(contours[i])
                 #cv.rectangle(original_img, (x, y), (x + w, y + h), (0, 255,0), 2)
@@ -130,38 +138,42 @@ def draw_contour_of_the_car_window(original_img, contour_img):
                 window_extLeft_list.append(extLeft)
                 window_extRight_list.append(extRight)
 
+    #沒找到窗戶或車門 直接return
+    if(len(window_extRight_list) == 0 or len(door_bottom[0])==0):
+        return np.ones_like(contour_img, dtype=np.uint8), window_contour_list, -1                
+                
     #畫車門
-    cv.drawContours(original_img, door_bottom, 0, (255,0,0), -1)
+    #cv.drawContours(original_img, door_bottom, 0, (255,0,0), -1)
     cv.drawContours(door_guided_image, door_bottom, 0, (0,0,0), -1)                
+
     
     #畫車窗最右邊的點
     extRight = max(window_extRight_list,key=lambda item:item[0])
     extLeft = min(window_extLeft_list,key=lambda item:item[0])
-    cv.circle(original_img, extRight, 20, (0, 255, 255), -1)
-    cv.circle(original_img, extLeft, 20, (0, 255, 255), -1)
+#     cv.circle(original_img, extRight, 20, (0, 255, 255), -1)
+#     cv.circle(original_img, extLeft, 20, (0, 255, 255), -1)
         
     #cv.rectangle(original_img,(extRight[0], 0),(original_img.shape[1], original_img.shape[0]) , (0, 255,0), -1)    
     #cv.rectangle(original_img, (0, 0), (extLeft[0], original_img.shape[0]), (0, 255, 0), -1)
-    cv.rectangle(door_guided_image, (extRight[0], 0),(original_img.shape[1], original_img.shape[0]), (0, 0, 0), -1)
-    cv.rectangle(door_guided_image, (0, 0), (extLeft[0], original_img.shape[0]), (0, 0, 0), -1)
+    cv.rectangle(door_guided_image, (extRight[0], 0),(contour_img.shape[1], contour_img.shape[0]), (0, 0, 0), -1)
+    cv.rectangle(door_guided_image, (0, 0), (extLeft[0], contour_img.shape[0]), (0, 0, 0), -1)
     
-    return original_img, door_guided_image
 
-#filelist = ['temp\\F_Door.jpg', 'temp2\\F_Door.jpg', 'temp3\\F_Door.jpg']
-#filelist = ['complete\\G_1.jpg', 'complete\\G_2.jpg', 'complete\\G_3.jpg']
-#filelist = ['complete\\R_1.jpg', 'complete\\R_2.jpg', 'complete\\R_3.jpg']
-#filelist = ['complete\\W2_1.jpg', 'complete\\W2_2.jpg', 'complete\\W2_3.jpg']
-filelist = ['complete\\W1_1.jpg', 'complete\\W1_2.jpg', 'complete\\W1_3.jpg']
-print(filelist[0])
-frame = cv.imread(filelist[0], 1)
-frame_threshold = process_the_image(frame)
-
-print(filelist[1])
-frame2 = cv.imread(filelist[1], 1)
-frame_threshold2 = process_the_image(frame2)
-
-print(filelist[2])
-frame3 = cv.imread(filelist[2], 1)
-frame_threshold3 = process_the_image(frame3)
+    
+    return door_guided_image, window_contour_list, 0
 
 
+### Draw Window and Door
+
+
+def draw_window_and_door(offset_x, offset_y, window_contour_list, door_contour_list, image):
+    #print(len(window_contour_list), " ", len(door_contour_list))
+    #print(np.array(window_contour_list[0]).shape)
+    
+    for i in range(len(window_contour_list)):
+        cv.drawContours(image, window_contour_list, i, (0,0,255), -1, offset=(offset_x, offset_y)) 
+        
+    for i in range(len(door_contour_list)):
+        cv.drawContours(image, door_contour_list, i, (255,0,0), -1, offset=(offset_x, offset_y)) 
+    
+    return image

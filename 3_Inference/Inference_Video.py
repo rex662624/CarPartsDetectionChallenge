@@ -70,9 +70,12 @@ inspection_pts = {
 #image = Image.open('00001.jpg')
 #prediction, new_image = yolo.detect_image(image)
 
-cap = cv2.VideoCapture('Car.mp4')
-cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+cap = cv2.VideoCapture('Car_Trim.mp4')
+cap.set(cv2.CAP_PROP_POS_FRAMES, 1000)
 time_start =  time.time()
+
+Prev_Window_List, Prev_Door_List = [], []
+window_contour_list, door_contour_list = [], []
 
 while(True):
     # 從攝影機擷取一張影像
@@ -128,7 +131,20 @@ while(True):
         #print(x_min," ", y_min, "", x_max," ", y_max)
         cv2.rectangle(new_image, (x_min, y_min), (x_max, y_max), (0, 255, 255), 5)
         Door = np.array(frame[y_min:y_max,x_min:x_max])
-        cv2.imwrite('temp\Door{}.jpg'.format(second), Door)
+        
+        
+        #cv2.imwrite('temp\Door{}.jpg'.format(second), Door)
+        Prev_Window_List, Prev_Door_List = window_contour_list, door_contour_list
+        window_contour_list, door_contour_list = Car_Window_and_Door_Extract_Lib.process_the_image(Door)
+        if(len(window_contour_list)==0):
+            window_contour_list = Prev_Window_List
+
+        if(len(door_contour_list)==0):
+            door_contour_list = Prev_Door_List        
+
+        new_image = Car_Window_and_Door_Extract_Lib.draw_window_and_door(x_min, y_min, window_contour_list, door_contour_list, new_image)
+        
+        
             
 
     cv2.imshow('frame', new_image)
