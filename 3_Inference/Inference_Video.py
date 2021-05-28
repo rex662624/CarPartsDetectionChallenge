@@ -70,21 +70,40 @@ inspection_pts = {
 #image = Image.open('00001.jpg')
 #prediction, new_image = yolo.detect_image(image)
 
-cap = cv2.VideoCapture('Car_Trim.mp4')
+cap = cv2.VideoCapture('Production_Line.mp4')
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 12000)
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 5000)
-cap.set(cv2.CAP_PROP_POS_FRAMES, 1600)
+cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 time_start =  time.time()
 
 Prev_Window_List, Prev_Door_List = [], []
 window_contour_list, door_contour_list = [], []
+frame_count = 0
+prev_centerX, prev_centerY = 0, 0
+Wheel_Record = []
 
+Acc_Wheel = 0
+Golden = np.load('Golden.npy')
+Golden_Pt = Golden[:,:-1]
+Find_Front = [False,2**32-1,2**32-1,-1,-1]
+Find_Back = [False,2**32-1,2**32-1,-1,-1]
+print(Golden_Pt)
+missing = 0
 while(True):
     # 從攝影機擷取一張影像
     ret, frame = cap.read()
+
+    frame_count += 1
+
+    # Use the Right left
+    # if(not ret):
+    #     np.save('table.npy', np.array(Wheel_Record))
+    right_bottom = frame.copy()[frame.shape[1]//2:, frame.shape[0]//2:]
     # 顯示圖片
-    prediction, new_image = yolo.detect_image(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
-    new_image = cv2.cvtColor(np.array(new_image), cv2.COLOR_RGB2BGR)
+    prediction, new_image = yolo.detect_image(Image.fromarray(cv2.cvtColor(right_bottom, cv2.COLOR_BGR2RGB)))
+
+    new_image = frame
+    #new_image = cv2.cvtColor(np.array(new_image), cv2.COLOR_RGB2BGR)
     
     time_now = time.time() - time_start
     second = time_now
@@ -92,49 +111,104 @@ while(True):
     #print(second)
 
     Door_List = []
-
     Wheel_List = []
+    offsetx = frame.shape[0]//2
+    offsety = frame.shape[1]//2    
     
     #cv2.imwrite('temp\\test.jpg', frame)    
     #break
     # output as xmin, ymin, xmax, ymax, class_index, confidence
+    now_centerX, now_centerY = 0, 0
+
+    if(len(prediction)==0):
+        missing+=1
     for object_detected in prediction:
         object_name = class_list[object_detected[4]]
             
-        if(object_name == 'Door'):
-            #cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (255, 0, 0), 2)
-            x_width = (object_detected[2] - object_detected[0])
-            y_width = (object_detected[3] - object_detected[1])
+        # if(object_name == 'Door'):
+        #     #cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (255, 0, 0), 2)
+        #     x_width = (object_detected[2] - object_detected[0])
+        #     y_width = (object_detected[3] - object_detected[1])
 
-            Door = np.array(frame[object_detected[1]:object_detected[3],object_detected[0]:object_detected[2]])
-            Door_List.append(object_detected)
-            #Door = cv2.blur(Door,(11,11))
-            #Door = cv2.cvtColor(Door, cv2.COLOR_BGR2GRAY)
-            #_, Gray = cv2.threshold(Door, 20, 255, cv2.THRESH_BINARY_INV)
+        #     Door = np.array(frame[object_detected[1]:object_detected[3],object_detected[0]:object_detected[2]])
+        #     Door_List.append(object_detected)
+        #     #Door = cv2.blur(Door,(11,11))
+        #     #Door = cv2.cvtColor(Door, cv2.COLOR_BGR2GRAY)
+        #     #_, Gray = cv2.threshold(Door, 20, 255, cv2.THRESH_BINARY_INV)
 
-            #cv2.imshow('Gray', Gray)     
+        #     #cv2.imshow('Gray', Gray)     
 
-            #cv2.imwrite('temp\Door{}.jpg'.format(second), Door)     
+        #     #cv2.imwrite('temp\Door{}.jpg'.format(second), Door)     
+        # elif(object_name == 'SideGlass'):
+        #     #cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 255, 0), 2)
+        #     center_x = (object_detected[0] + object_detected[2])//2
+        #     center_y = (object_detected[1] + object_detected[3])//2
+        #     #cv2.circle(new_image, (center_x, center_y),10 , (0, 0, 255), -1)            
+        
+        if(object_name == 'Wheel'):
 
-        elif(object_name == 'Wheel'):
-
-            center_x = (object_detected[0] + object_detected[2])//2
-            center_y = (object_detected[1] + object_detected[3])//2
+            center_x = (object_detected[0] + object_detected[2])//2 + offsetx  
+            center_y = (object_detected[1] + object_detected[3])//2 + offsety
             Wheel_List.append([object_detected, center_x, center_y])
+            cv2.circle(new_image, (center_x, center_y), 10 ,(0, 0, 255), -1)
+            
+            #cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 0, 255), 2)
+            if(((abs(center_x-prev_centerX)<30 and abs(center_y-prev_centerY)<30) or prev_centerX==0) and Acc_Wheel<10):
+
+                if(Find_Front[0] == False):#應該畫面內只會有前輪，因此找到的一定是前輪
+
+                    Acc_Wheel+=1
+                    prev_centerX, prev_centerY = center_x, center_y
+                    cv2.circle(new_image, (center_x, center_y), 10 ,(255, 0, 0), -1)
+                elif(abs(center_x-Find_Front[1])>40):#要找後輪，但可能前後輪都被偵測到，要排除前輪
+
+                        print("---")
+                        Acc_Wheel+=1
+                        prev_centerX, prev_centerY = center_x, center_y
+                        cv2.circle(new_image, (center_x, center_y), 10 ,(0, 255, 0), -1)
+                else:
+                    missing+=1
+            elif(Acc_Wheel>=10):
+                dist = np.linalg.norm([prev_centerX, prev_centerY]-Golden_Pt, axis=1)
+                index_min = np.argmin(dist)
+                
+                if(Find_Front[0] == False):
+                    Find_Front = [True, center_x, center_y, frame_count, index_min]
+                    prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
+
+                #print(Golden_Pt[index_min])
+                cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
+
+            else:
+                missing+=1
+        else:
+            missing+=1
+
+    print(missing)
+    if(missing>10):
+        prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
+    if(Find_Front[0] == True):
+        #print(frame_count)
+        cv2.circle(new_image, (Find_Front[1], Find_Front[2]), 10 ,(255, 255, 255), -1)
+        
+
+    cv2.imshow('frame', new_image)
+    
+    #print(Wheel_Record)
+    # 若按下 q 鍵則離開迴圈
+    if cv2.waitKey(33) & 0xFF == ord('q'):
+        #np.save('table.npy', np.array(Wheel_Record))
+        break
 
 
-            cv2.circle(new_image, (center_x, center_y),10 , (0, 0, 255), -1)
-            cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 0, 255), 2)
+'''
 
 
 
-        elif(object_name == 'SideGlass'):
-            #cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 255, 0), 2)
-            center_x = (object_detected[0] + object_detected[2])//2
-            center_y = (object_detected[1] + object_detected[3])//2
-            cv2.circle(new_image, (center_x, center_y),10 , (0, 0, 255), -1)            
-
+    
     Wheel_List = sorted(Wheel_List,key=lambda l:l[1])
+
+
 
     for i in range(len(Wheel_List)):
         object_detected = Wheel_List[i][0]
@@ -179,9 +253,9 @@ while(True):
     if(len(Wheel_List)>=2):
         cv2.rectangle(new_image, (Wheel_List[-2][1],300), (Wheel_List[-1][1], Wheel_List[-1][2]), (0, 255, 0), 2)
 
-        
 
-        
+
+
 
     # # if find some door
     # if(len(Door_List)):
@@ -204,12 +278,5 @@ while(True):
     #         door_contour_list = Prev_Door_List        
 
     #     new_image = Car_Window_and_Door_Extract_Lib.draw_window_and_door(x_min, y_min, window_contour_list, door_contour_list, new_image)
-        
-        
-            
-
-    cv2.imshow('frame', new_image)
-    # 若按下 q 鍵則離開迴圈
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
+                
+'''
