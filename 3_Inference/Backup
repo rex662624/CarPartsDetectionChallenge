@@ -70,7 +70,7 @@ inspection_pts = {
 #image = Image.open('00001.jpg')
 #prediction, new_image = yolo.detect_image(image)
 
-cap = cv2.VideoCapture('Production_Line3.mp4')
+cap = cv2.VideoCapture('Production_Line.mp4')
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 12000)
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 5000)
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -84,14 +84,11 @@ Wheel_Record = []
 
 Acc_Wheel = 0
 Golden = np.load('Golden.npy')
-
 Golden_Pt = Golden[:,:-1]
-
 Find_Front = [False,2**32-1,2**32-1,-1,-1,-1]
 Find_Back = [False,2**32-1,2**32-1,-1,-1]
 print(Golden_Pt)
 missing = 0
-Find_Wheelx, Find_Wheely = -1, -1
 while(True):
     # 從攝影機擷取一張影像
     ret, frame = cap.read()
@@ -100,6 +97,9 @@ while(True):
     if(Find_Front[0]==False):
         offsetx = frame.shape[0]//2
         offsety = frame.shape[1]//2  
+    else:
+        offsetx = Find_Front[1]
+        offsety = Find_Front[2] 
     # Use the Right left
     # if(not ret):
     #     np.save('table.npy', np.array(Wheel_Record))
@@ -159,19 +159,18 @@ while(True):
             if(((abs(center_x-prev_centerX)<30 and abs(center_y-prev_centerY)<30) or prev_centerX==0) and Acc_Wheel<10):
 
                 if(Find_Front[0] == False):#應該畫面內只會有前輪，因此找到的一定是前輪
+
                     Acc_Wheel+=1
                     prev_centerX, prev_centerY = center_x, center_y
                     cv2.circle(new_image, (center_x, center_y), 10 ,(255, 0, 0), -1)
+                elif(abs(center_x-Find_Front[1])>40):#要找後輪，但可能前後輪都被偵測到，要排除前輪
 
-                elif(abs(center_x-Find_Wheelx)>80):#要找後輪，但可能前後輪都被偵測到，要排除前輪
-                    print("---")
-                    Acc_Wheel+=1
-                    prev_centerX, prev_centerY = center_x, center_y
-                    cv2.circle(new_image, (center_x, center_y), 10 ,(0, 255, 0), -1)
-
+                        print("---")
+                        Acc_Wheel+=1
+                        prev_centerX, prev_centerY = center_x, center_y
+                        cv2.circle(new_image, (center_x, center_y), 10 ,(0, 255, 0), -1)
                 else:
                     missing+=1
-
             elif(Acc_Wheel>=10):
                 dist = np.linalg.norm([prev_centerX, prev_centerY]-Golden_Pt, axis=1)
                 index_min = np.argmin(dist)
@@ -179,12 +178,7 @@ while(True):
                 if(Find_Front[0] == False):
                     Find_Front = [True, center_x, center_y, frame_count, index_min]#offsetx offsety
                     prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
-                elif(Find_Back[0] == False):
-                    if(np.min(dist)>50):
-                        prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
-                    else:
-                        Find_Back = [True, center_x, center_y, frame_count, index_min]#offsetx offsety
-                    #cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
+
                 #print(Golden_Pt[index_min])
                 cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
 
@@ -196,21 +190,10 @@ while(True):
     print(missing)
     if(missing>10):
         prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
-
-    
-    for Find_Wheel in [Find_Front, Find_Back]:
-        if(Find_Wheel[0] == True):
-            GoldenX, GoldenY, Golden_Start_Frame = Golden[Find_Wheel[4]][0], Golden[Find_Wheel[4]][1], Golden[Find_Wheel[4]][2]
-            Start_Frame = Find_Wheel[3]
-            if((Find_Wheel[4]+frame_count-Start_Frame) < len(Golden)):
-                Wheeloffsetx = Golden[Find_Wheel[4]+(frame_count-Start_Frame)][0] - GoldenX
-                Wheeloffsety = Golden[Find_Wheel[4]+(frame_count-Start_Frame)][1] - GoldenY
-                
-                Find_Wheelx, Find_Wheely = Find_Wheel[1]+Wheeloffsetx, Find_Wheel[2]+Wheeloffsety
-
-                cv2.circle(new_image, (Golden_Pt[Find_Wheel[4]][0]+Wheeloffsetx, Golden_Pt[Find_Wheel[4]][1]+Wheeloffsety), 10 ,(0, 0, 0), -1)
-                cv2.circle(new_image, (Find_Wheelx, Find_Wheely), 10 ,(255, 255, 255), -1)
-
+    if(Find_Front[0] == True):
+        #print(frame_count)
+        cv2.circle(new_image, (Find_Front[1], Find_Front[2]), 10 ,(255, 255, 255), -1)
+        
 
     cv2.imshow('frame', new_image)
     
