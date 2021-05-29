@@ -70,11 +70,10 @@ inspection_pts = {
 #image = Image.open('00001.jpg')
 #prediction, new_image = yolo.detect_image(image)
 
-#cap = cv2.VideoCapture('Production_Line3.mp4')
-cap = cv2.VideoCapture('Golden_Thesis.mp4')
+cap = cv2.VideoCapture('Thesis_Sample1.mp4')
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 12000)
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 5000)
-cap.set(cv2.CAP_PROP_POS_FRAMES, 250)
+cap.set(cv2.CAP_PROP_POS_FRAMES, 500)
 time_start =  time.time()
 
 Prev_Window_List, Prev_Door_List = [], []
@@ -84,27 +83,28 @@ prev_centerX, prev_centerY = 0, 0
 Wheel_Record = []
 
 Acc_Wheel = 0
-Golden = np.load('Golden.npy')
+#Golden = np.load('Golden.npy')
+Golden = np.load('Golden_Thesis.npy')
 
 Golden_Pt = Golden[:,:-1]
 
-Find_Front = [False,2**32-1,2**32-1,-1,-1,-1]
+Find_Front = [False,2**32-1,2**32-1,-1,-1]
 Find_Back = [False,2**32-1,2**32-1,-1,-1]
 print(Golden_Pt)
 missing = 0
 Find_Wheelx, Find_Wheely = -1, -1
+initilize = 0
 while(True):
     # 從攝影機擷取一張影像
-    ret, frame = cap.read()
+    ret, frame = cap.read() 
 
     frame_count += 1
-    # if(Find_Front[0]==False):
-    #     offsetx = frame.shape[0]//2
-    #     offsety = frame.shape[1]//2  
-    offsetx, offsety = 0, 0
+    if(Find_Front[0]==False):
+        offsetx = frame.shape[0]//2
+        offsety = frame.shape[1]//2  
     # Use the Right left
-    if(not ret):
-        np.save('table.npy', np.array(Wheel_Record))
+    # if(not ret):
+    #     np.save('table.npy', np.array(Wheel_Record))
     right_bottom = frame.copy()[offsety:, offsetx:]
     # 顯示圖片
     prediction, new_image = yolo.detect_image(Image.fromarray(cv2.cvtColor(right_bottom, cv2.COLOR_BGR2RGB)))
@@ -155,65 +155,92 @@ while(True):
             center_x = (object_detected[0] + object_detected[2])//2 + offsetx  
             center_y = (object_detected[1] + object_detected[3])//2 + offsety
             Wheel_List.append([object_detected, center_x, center_y])
-            #cv2.circle(new_image, (center_x, center_y), 10 ,(0, 0, 255), -1)
-            #cv2.rectangle(new_image, (center_x-100, center_y-100), (center_x+100, center_y+100), (0, 0, 255), 2)
+            cv2.circle(new_image, (center_x, center_y), 10 ,(0, 0, 255), -1)
             
             #cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 0, 255), 2)
-            if(((abs(center_x-prev_centerX)<100 and abs(center_y-prev_centerY)<100) or prev_centerX==0) ):
+            if(((abs(center_x-prev_centerX)<30 and abs(center_y-prev_centerY)<30) or prev_centerX==0) and Acc_Wheel<10):
 
                 if(Find_Front[0] == False):#應該畫面內只會有前輪，因此找到的一定是前輪
                     Acc_Wheel+=1
                     prev_centerX, prev_centerY = center_x, center_y
                     cv2.circle(new_image, (center_x, center_y), 10 ,(255, 0, 0), -1)
-                    Wheel_Record.append([center_x, center_y, frame_count])
-                    
-                # elif(abs(center_x-Find_Wheelx)>80):#要找後輪，但可能前後輪都被偵測到，要排除前輪
-                #     #print("---")
-                #     Acc_Wheel+=1
-                #     prev_centerX, prev_centerY = center_x, center_y
-                #     cv2.circle(new_image, (center_x, center_y), 10 ,(0, 255, 0), -1)
 
-                # else:
-                #     missing+=1
+                elif(abs(center_x-Find_Wheelx)>80):#要找後輪，但可能前後輪都被偵測到，要排除前輪
+                    Acc_Wheel+=1
+                    prev_centerX, prev_centerY = center_x, center_y
+                    cv2.circle(new_image, (center_x, center_y), 10 ,(0, 255, 0), -1)
 
-        #     elif(Acc_Wheel>=10):
-        #         dist = np.linalg.norm([prev_centerX, prev_centerY]-Golden_Pt, axis=1)
-        #         index_min = np.argmin(dist)
+                else:
+                    missing+=1
+
+            elif(Acc_Wheel>=10):
+                dist = np.linalg.norm([prev_centerX, prev_centerY]-Golden_Pt, axis=1)
+                index_min = np.argmin(dist)
                 
-        #         if(Find_Front[0] == False):
-        #             Find_Front = [True, center_x, center_y, frame_count, index_min]#offsetx offsety
-        #             prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
-        #         elif(Find_Back[0] == False):
-        #             if(np.min(dist)>50):
-        #                 prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
-        #             else:
-        #                 Find_Back = [True, center_x, center_y, frame_count, index_min]#offsetx offsety
-        #             #cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
-        #         #print(Golden_Pt[index_min])
-        #         cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
+                if(Find_Front[0] == False):
+                    Find_Front = [True, center_x, center_y, frame_count, index_min]#offsetx offsety
+                    prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
+                elif(Find_Back[0] == False):
+                    if(np.min(dist)>50):
+                        prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
+                    else:
+                        Find_Back = [True, center_x, center_y, frame_count, index_min]#offsetx offsety
+                    #cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
+                #print(Golden_Pt[index_min])
+                cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
 
-        #     else:
-        #         missing+=1
-        # else:
-        #     missing+=1
+            else:
+                missing+=1
+        else:
+            missing+=1
 
-    # print(missing)
-    # if(missing>10):
-    #     prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
+    #print(missing)
+    if(missing>10):
+        prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
 
     
-    # for Find_Wheel in [Find_Front, Find_Back]:
-    #     if(Find_Wheel[0] == True):
-    #         GoldenX, GoldenY, Golden_Start_Frame = Golden[Find_Wheel[4]][0], Golden[Find_Wheel[4]][1], Golden[Find_Wheel[4]][2]
-    #         Start_Frame = Find_Wheel[3]
-    #         if((Find_Wheel[4]+frame_count-Start_Frame) < len(Golden)):
-    #             Wheeloffsetx = Golden[Find_Wheel[4]+(frame_count-Start_Frame)][0] - GoldenX
-    #             Wheeloffsety = Golden[Find_Wheel[4]+(frame_count-Start_Frame)][1] - GoldenY
+    Wheel_Pt = []
+    for Find_Wheel in [Find_Front, Find_Back]:
+        if(Find_Wheel[0] == True):
+            GoldenX, GoldenY, Golden_Start_Frame = Golden[Find_Wheel[4]][0], Golden[Find_Wheel[4]][1], Golden[Find_Wheel[4]][2]
+            Start_Frame = Find_Wheel[3]
+            if((Find_Wheel[4]+frame_count-Start_Frame) < len(Golden)):
+                Wheeloffsetx = Golden[Find_Wheel[4]+(frame_count-Start_Frame)][0] - GoldenX
+                Wheeloffsety = Golden[Find_Wheel[4]+(frame_count-Start_Frame)][1] - GoldenY
                 
-    #             Find_Wheelx, Find_Wheely = Find_Wheel[1]+Wheeloffsetx, Find_Wheel[2]+Wheeloffsety
+                Find_Wheelx, Find_Wheely = Find_Wheel[1]+Wheeloffsetx, Find_Wheel[2]+Wheeloffsety
 
-    #             cv2.circle(new_image, (Golden_Pt[Find_Wheel[4]][0]+Wheeloffsetx, Golden_Pt[Find_Wheel[4]][1]+Wheeloffsety), 10 ,(0, 0, 0), -1)
-    #             cv2.circle(new_image, (Find_Wheelx, Find_Wheely), 10 ,(255, 255, 255), -1)
+                cv2.circle(new_image, (Golden_Pt[Find_Wheel[4]][0]+Wheeloffsetx, Golden_Pt[Find_Wheel[4]][1]+Wheeloffsety), 10 ,(0, 0, 0), -1)
+                cv2.circle(new_image, (Find_Wheelx, Find_Wheely), 10 ,(255, 255, 255), -1)
+                #存前後輪座標
+                Wheel_Pt.append([Find_Wheelx, Find_Wheely])
+
+    Door = np.array([])
+    x_min, y_min = 0, 0
+    if(len(Wheel_Pt)==0):# not find the wheel
+        print("Not find the wheel")
+    elif(len(Wheel_Pt)==1):# not find the wheel
+        print("find front wheel")
+        cv2.rectangle(new_image, (Wheel_Pt[0][0], 300), (frame.shape[1], frame.shape[0]), (255, 0, 0), 2)
+        Door = np.array(frame[300:frame.shape[0],Wheel_Pt[0][0]:frame.shape[1]])
+        x_min, y_min = Wheel_Pt[0][0], 300
+    elif(len(Wheel_Pt)==2):# find the both wheel
+        print("find both wheel")
+        cv2.rectangle(new_image, (Wheel_Pt[0][0], 300), (Wheel_Pt[1][0], Wheel_Pt[1][1]), (255, 0, 0), 2)
+        Door = np.array(frame[300:Wheel_Pt[1][1], Wheel_Pt[0][0]:Wheel_Pt[1][0]])
+        x_min, y_min = Wheel_Pt[0][0], 300
+
+    if(len(Door)>0):
+        #segmentation
+        Prev_Window_List, Prev_Door_List = window_contour_list, door_contour_list
+        window_contour_list, door_contour_list = Car_Window_and_Door_Extract_Lib.process_the_image(Door)
+        if(len(window_contour_list)==0):
+            window_contour_list = Prev_Window_List
+
+        if(len(door_contour_list)==0):
+            door_contour_list = Prev_Door_List        
+
+        new_image = Car_Window_and_Door_Extract_Lib.draw_window_and_door(x_min, y_min, window_contour_list, door_contour_list, new_image)
 
 
     cv2.imshow('frame', new_image)
@@ -294,7 +321,7 @@ while(True):
         
     #     #cv2.imwrite('temp\Door{}.jpg'.format(second), Door)
     #     Prev_Window_List, Prev_Door_List = window_contour_list, door_contour_list
-    #     window_contour_list, door_contour_list = Car_Window_and_Door_Extract_Lib.process_the_image(Door)
+    #     window_contour_list, door_contour_list = Car_Window_and_Door_Extract_Lib.process_te_image(Door)
     #     if(len(window_contour_list)==0):
     #         window_contour_list = Prev_Window_List
 
