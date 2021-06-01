@@ -74,8 +74,8 @@ def draw_contour_of_the_car_window(contour_img):
     
     contours, hierarchy = cv.findContours(contour_img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     #cv.drawContours(original_img, contours, -1, (0,255,0), 3)
-    area_threshold = 3000
-    window_threshold = 10000
+    area_threshold = 300
+    window_threshold = 700
     window_extRight_list = []
     window_extLeft_list = []
     door_bottom = [[],2**32]#contour,Cx,Cy
@@ -169,11 +169,12 @@ def draw_contour_of_the_car_window(contour_img):
 def draw_window_and_door(offset_x, offset_y, window_contour_list, door_contour_list, image):
     #print(len(window_contour_list), " ", len(door_contour_list))
     #print(np.array(window_contour_list[0]).shape)
-    
+
     for i in range(len(window_contour_list)):
         cv.drawContours(image, window_contour_list, i, (0,0,255), -1, offset=(offset_x, offset_y)) 
-        
+    #print(len(door_contour_list))        
     for i in range(len(door_contour_list)):
+        
         cv.drawContours(image, door_contour_list, i, (255,0,0), -1, offset=(offset_x, offset_y)) 
     
     return image

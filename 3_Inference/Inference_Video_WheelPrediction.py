@@ -94,6 +94,7 @@ print(Golden_Pt)
 missing = 0
 Find_Wheelx, Find_Wheely = -1, -1
 initilize = 0
+prev_frame_time, new_frame_time = 0, 0
 while(True):
     # 從攝影機擷取一張影像
     ret, frame = cap.read() 
@@ -155,7 +156,7 @@ while(True):
             center_x = (object_detected[0] + object_detected[2])//2 + offsetx  
             center_y = (object_detected[1] + object_detected[3])//2 + offsety
             Wheel_List.append([object_detected, center_x, center_y])
-            cv2.circle(new_image, (center_x, center_y), 10 ,(0, 0, 255), -1)
+            #cv2.circle(new_image, (center_x, center_y), 10 ,(0, 0, 255), -1)
             
             #cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 0, 255), 2)
             if(((abs(center_x-prev_centerX)<30 and abs(center_y-prev_centerY)<30) or prev_centerX==0) and Acc_Wheel<10):
@@ -163,12 +164,12 @@ while(True):
                 if(Find_Front[0] == False):#應該畫面內只會有前輪，因此找到的一定是前輪
                     Acc_Wheel+=1
                     prev_centerX, prev_centerY = center_x, center_y
-                    cv2.circle(new_image, (center_x, center_y), 10 ,(255, 0, 0), -1)
+                    #cv2.circle(new_image, (center_x, center_y), 10 ,(255, 0, 0), -1)
 
                 elif(abs(center_x-Find_Wheelx)>80):#要找後輪，但可能前後輪都被偵測到，要排除前輪
                     Acc_Wheel+=1
                     prev_centerX, prev_centerY = center_x, center_y
-                    cv2.circle(new_image, (center_x, center_y), 10 ,(0, 255, 0), -1)
+                    #cv2.circle(new_image, (center_x, center_y), 10 ,(0, 255, 0), -1)
 
                 else:
                     missing+=1
@@ -187,7 +188,7 @@ while(True):
                         Find_Back = [True, center_x, center_y, frame_count, index_min]#offsetx offsety
                     #cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
                 #print(Golden_Pt[index_min])
-                cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
+                #cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
 
             else:
                 missing+=1
@@ -210,23 +211,24 @@ while(True):
                 
                 Find_Wheelx, Find_Wheely = Find_Wheel[1]+Wheeloffsetx, Find_Wheel[2]+Wheeloffsety
 
-                cv2.circle(new_image, (Golden_Pt[Find_Wheel[4]][0]+Wheeloffsetx, Golden_Pt[Find_Wheel[4]][1]+Wheeloffsety), 10 ,(0, 0, 0), -1)
-                cv2.circle(new_image, (Find_Wheelx, Find_Wheely), 10 ,(255, 255, 255), -1)
+                #cv2.circle(new_image, (Golden_Pt[Find_Wheel[4]][0]+Wheeloffsetx, Golden_Pt[Find_Wheel[4]][1]+Wheeloffsety), 10 ,(0, 0, 0), -1)
+                #cv2.circle(new_image, (Find_Wheelx, Find_Wheely), 10 ,(255, 255, 255), -1)
                 #存前後輪座標
                 Wheel_Pt.append([Find_Wheelx, Find_Wheely])
 
     Door = np.array([])
     x_min, y_min = 0, 0
     if(len(Wheel_Pt)==0):# not find the wheel
-        print("Not find the wheel")
+        #print("Not find the wheel")
+        pass
     elif(len(Wheel_Pt)==1):# not find the wheel
-        print("find front wheel")
-        cv2.rectangle(new_image, (Wheel_Pt[0][0], 300), (frame.shape[1], frame.shape[0]), (255, 0, 0), 2)
+        #print("find front wheel")
+        #cv2.rectangle(new_image, (Wheel_Pt[0][0], 300), (frame.shape[1], frame.shape[0]), (255, 0, 0), 2)
         Door = np.array(frame[300:frame.shape[0],Wheel_Pt[0][0]:frame.shape[1]])
         x_min, y_min = Wheel_Pt[0][0], 300
     elif(len(Wheel_Pt)==2):# find the both wheel
-        print("find both wheel")
-        cv2.rectangle(new_image, (Wheel_Pt[0][0], 300), (Wheel_Pt[1][0], Wheel_Pt[1][1]), (255, 0, 0), 2)
+        #print("find both wheel")
+        #cv2.rectangle(new_image, (Wheel_Pt[0][0], 300), (Wheel_Pt[1][0], Wheel_Pt[1][1]), (255, 0, 0), 2)
         Door = np.array(frame[300:Wheel_Pt[1][1], Wheel_Pt[0][0]:Wheel_Pt[1][0]])
         x_min, y_min = Wheel_Pt[0][0], 300
 
@@ -244,7 +246,17 @@ while(True):
 
 
     cv2.imshow('frame', new_image)
-    
+
+    # new_frame_time = time.time()
+    # Calculating the fps
+    # fps will be number of frame processed in given time frame
+    # since their will be most of time error of 0.001 second
+    # we will be subtracting it to get more accurate result
+    # fps = 1/(new_frame_time-prev_frame_time)
+    # prev_frame_time = new_frame_time
+            
+    # print(fps)
+
     #print(Wheel_Record)
     # 若按下 q 鍵則離開迴圈
     if cv2.waitKey(1) & 0xFF == ord('q'):
