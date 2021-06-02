@@ -70,7 +70,7 @@ inspection_pts = {
 #image = Image.open('00001.jpg')
 #prediction, new_image = yolo.detect_image(image)
 
-cap = cv2.VideoCapture('Point\\Sample1.mp4')
+cap = cv2.VideoCapture('Point\\Sample2.mp4')
 #cap = cv2.VideoCapture('Production_Line.mp4')
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 12000)
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 5000)
@@ -98,16 +98,17 @@ missing = 0
 Find_Wheelx, Find_Wheely = -1, -1
 initilize = 0
 prev_frame_time, new_frame_time = 0, 0
-
+Upper = 300
 #當前輪x>多少的時候，這個點會開始出現 [x, v,(點)] v是速度
 #[triggerx, triggery, velocity, accelerate,(x,y),frame累積, GoldenFrame]
 #479 546
 # 0, 0.11, 20, 0.3
 Inspection_pt = [
-                [553, 600, (630, 500), 0], [553, 600, (630, 550), 0], [553, 600, (630, 600), 0],
-                [479, 546, (780, 550), 0], [479, 546, (780, 600),0], [479, 546, (780, 650), 0],
-                [474, 565, (780, 550), 0], [345,486,(740, 520),0],
-                [412,527,(740, 400),0], [412,527,(680, 300),0]
+                #[triggerx, triggery,(x,y),frame累積, True False, velocity, accelerate, GoldenFrame]
+                [553, 600, (630, 500), 0, False, 0, 0.01], [553, 600, (630, 550), 0, False, 0, 0.01], [553, 600, (630, 600), 0, False, 0, 0.01],
+                [479, 546, (780, 550), 0, False, 0, 0.3], [479, 546, (780, 600), 0, False, 0, 0.3], [479, 546, (780, 650), 0, False, 0, 0.3],
+                [474, 565, (780, 550), 0, False, 0, 0.11], [345, 486, (740, 520), 0, False, 0, 0.11],
+                [412, 527, (740, 400), 0, False, 0, 0.11], [412, 527, (680, 300), 0, False, 0, 0.11]
                 ]
 #====
 Golden_Pt = np.array(Golden_Pt)
@@ -137,6 +138,8 @@ while(True):
     # exit(0)
 
     frame_count += 1
+    # if(frame_count%100==0):
+    #     cv2.imwrite('Test\\frame{}.jpg'.format(frame_count), frame)
     if(Find_Front[0]==False):
         offsetx = 2*(frame.shape[0])//3
         offsety = 2*(frame.shape[1])//3  
@@ -225,7 +228,8 @@ while(True):
                         Find_Back = [True, center_x, center_y, frame_count, index_min,center_x, center_y]#offsetx offsety
                     #cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
                 #print(Golden_Pt[index_min])
-                #cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
+                cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
+                print(prev_centerX, prev_centerY)
 
             else:
                 missing+=1
@@ -265,6 +269,7 @@ while(True):
                 #存前後輪座標
                 Wheel_Pt.append([Find_Wheelx, Find_Wheely])
 
+    
 
     # if(frame_count==900):
     #     print(Find_Wheelx, Find_Wheely)
@@ -287,9 +292,12 @@ while(True):
             cv2.circle(new_image, (int(x + Inspection_pt_offset_x-Inspection_pt[i][2]), y + Inspection_pt_offset_y), 10, (255, 0, 255), -1)
             Inspection_pt[i][2]+=a
     '''        
+    #=======================================畫檢測點===========================================
+
     #[triggerx, triggery,(x,y),frame累積offset, GoldenFrame]
     for i in range(len(Inspection_pt)):
-        triggerx, triggery, x, y, GoldenFrame = Inspection_pt[i][0], Inspection_pt[i][1],Inspection_pt[i][2][0],Inspection_pt[i][2][1],Inspection_pt[i][4]
+        print(Inspection_pt[i][0], Inspection_pt[i][1],Inspection_pt[i][2][0],Inspection_pt[i][2][1],Inspection_pt[i][-1])
+        triggerx, triggery, x, y, GoldenFrame = Inspection_pt[i][0], Inspection_pt[i][1],Inspection_pt[i][2][0],Inspection_pt[i][2][1],Inspection_pt[i][-1]
 
         
         if(Find_Front[0] == True and Find_Front[5]<triggerx):#Find_Front[5]: 前輪現在的x
@@ -300,10 +308,22 @@ while(True):
             GoldenX, GoldenY, Golden_Start_Frame = Golden[GoldenFrame][0], Golden[GoldenFrame][1], Golden[GoldenFrame][2]
             Inspection_pt_offset_x = Golden[GoldenFrame+Inspection_pt[i][3]][0] - GoldenX
             Inspection_pt_offset_y = Golden[GoldenFrame+Inspection_pt[i][3]][1] - GoldenY
-            
+
+            Inspection_pt_offset_x = Inspection_pt_offset_x+Inspection_pt[i][5]
+            #Inspection_pt[i][5] += Inspection_pt[i][6]#加速度
+            #print(Inspection_pt[i][5], Inspection_pt[i][6],Inspection_pt[i][3])
             cv2.circle(new_image, (x + Inspection_pt_offset_x, y + Inspection_pt_offset_y), 10, (255, 0, 255), -1)
             Inspection_pt[i][3]+=1#累積frame
+            
+            # #補償回去最接近的frame
+            # if(Golden[GoldenFrame][0]<=(x + Inspection_pt_offset_x) and Inspection_pt[i][4]==False):
+            #     print("===================================")
+            #     Inspection_pt[i][3] = 0
+            #     Inspection_pt[i][4] = True
 
+        
+    Upper-=0.025
+    Upper_int = int(Upper)
 
     Door = np.array([])
     x_min, y_min = 0, 0
@@ -312,18 +332,18 @@ while(True):
         pass
     elif(len(Wheel_Pt)==1):# not find the wheel
         print("find front wheel")
-        cv2.rectangle(new_image, (Wheel_Pt[0][0], 300), (frame.shape[1], frame.shape[0]), (255, 0, 0), 2)
+        cv2.rectangle(new_image, (Wheel_Pt[0][0], Upper_int), (frame.shape[1], frame.shape[0]), (255, 0, 0), 2)
         
-        Door = np.array(frame[300:frame.shape[0],Wheel_Pt[0][0]:frame.shape[1]])
-        x_min, y_min = Wheel_Pt[0][0], 300
+        Door = np.array(frame[Upper_int:frame.shape[0],Wheel_Pt[0][0]:frame.shape[1]])
+        x_min, y_min = Wheel_Pt[0][0], Upper_int
 
 
 
     elif(len(Wheel_Pt)==2):# find the both wheel
         print("find both wheel")
-        cv2.rectangle(new_image, (Wheel_Pt[0][0], 300), (Wheel_Pt[1][0], Wheel_Pt[1][1]), (255, 0, 0), 2)
-        Door = np.array(frame[300:Wheel_Pt[1][1], Wheel_Pt[0][0]:Wheel_Pt[1][0]])
-        x_min, y_min = Wheel_Pt[0][0], 300
+        cv2.rectangle(new_image, (Wheel_Pt[0][0], Upper_int), (Wheel_Pt[1][0], Wheel_Pt[1][1]), (255, 0, 0), 2)
+        Door = np.array(frame[Upper_int:Wheel_Pt[1][1], Wheel_Pt[0][0]:Wheel_Pt[1][0]])
+        x_min, y_min = Wheel_Pt[0][0], Upper_int
 
 
 
