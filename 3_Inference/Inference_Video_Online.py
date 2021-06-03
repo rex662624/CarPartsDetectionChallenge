@@ -57,24 +57,31 @@ yolo = YOLO(
     }
 )
 
+
+
 #
-inspection_pts = { 
-                    'front_window': [[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
-                    'back_window':  [[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],            
-                    'front_door':   [[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
-                    'back_door':    [[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
-                 }
+# inspection_pts = { 
+#                     'front_window': [[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
+#                     'back_window':  [[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],            
+#                     'front_door':   [[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
+#                     'back_door':    [[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
+#                  }
 
 
 
 #image = Image.open('00001.jpg')
 #prediction, new_image = yolo.detect_image(image)
 
-cap = cv2.VideoCapture('Point\\Sample2.mp4')
+cap = cv2.VideoCapture('Point\\Sample1.mp4')
 #cap = cv2.VideoCapture('Production_Line.mp4')
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 12000)
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 5000)
-frame_count = 500
+frame_count = 0
+#前輪出現時間 後輪出現時間 大小車 後輪時間-前輪時間
+#511 1488 大車(Sample2) 977
+#466 1714 小車(Sample1) 1248
+#314 1474 大車(Sample3) 1120
+#329 1523 大車(Sample4) 1194
 cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count)
 #cap.set(cv2.CAP_PROP_POS_FRAMES, 500)
 time_start =  time.time()
@@ -99,17 +106,41 @@ Find_Wheelx, Find_Wheely = -1, -1
 initilize = 0
 prev_frame_time, new_frame_time = 0, 0
 Upper = 300
+
+x_min, y_min = 0, 0
+x_max, y_max = 0, 0
+inspection_v = 0
+
+def bottom_line(x):
+    return int(-((650-x)*400/650-680))
+    
+
 #當前輪x>多少的時候，這個點會開始出現 [x, v,(點)] v是速度
 #[triggerx, triggery, velocity, accelerate,(x,y),frame累積, GoldenFrame]
 #479 546
 # 0, 0.11, 20, 0.3
+# Inspection_pt = [
+#                 #[triggerx, triggery,(x,y),frame累積, True False, velocity, accelerate, GoldenFrame]
+#                 [553, 600, (630, 500), 0, False, 0, 0.01], [553, 600, (630, 550), 0, False, 0, 0.01], [553, 600, (630, 600), 0, False, 0, 0.01],
+#                 [479, 546, (780, 550), 0, False, 0, 0.3], [479, 546, (780, 600), 0, False, 0, 0.3], [479, 546, (780, 650), 0, False, 0, 0.3],
+#                 [474, 565, (780, 550), 0, False, 0, 0.11], [345, 486, (740, 520), 0, False, 0, 0.11],
+#                 [412, 527, (740, 400), 0, False, 0, 0.11], [412, 527, (680, 300), 0, False, 0, 0.11]
+#                 ]
+
+# valid col [already insepction, point position]
 Inspection_pt = [
-                #[triggerx, triggery,(x,y),frame累積, True False, velocity, accelerate, GoldenFrame]
-                [553, 600, (630, 500), 0, False, 0, 0.01], [553, 600, (630, 550), 0, False, 0, 0.01], [553, 600, (630, 600), 0, False, 0, 0.01],
-                [479, 546, (780, 550), 0, False, 0, 0.3], [479, 546, (780, 600), 0, False, 0, 0.3], [479, 546, (780, 650), 0, False, 0, 0.3],
-                [474, 565, (780, 550), 0, False, 0, 0.11], [345, 486, (740, 520), 0, False, 0, 0.11],
-                [412, 527, (740, 400), 0, False, 0, 0.11], [412, 527, (680, 300), 0, False, 0, 0.11]
-                ]
+                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
+                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
+                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
+                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
+                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
+                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
+    
+                ]  
+line_list = [[],[],[],[],[],[]]     
+Interval = 110
+IntervalAcc = 0    
+ColCount = 0             
 #====
 Golden_Pt = np.array(Golden_Pt)
 #====
@@ -196,7 +227,7 @@ while(True):
             center_x = (object_detected[0] + object_detected[2])//2 + offsetx  
             center_y = (object_detected[1] + object_detected[3])//2 + offsety
             Wheel_List.append([object_detected, center_x, center_y])
-            cv2.circle(new_image, (center_x, center_y), 10 ,(0, 0, 255), -1)
+            #cv2.circle(new_image, (center_x, center_y), 10 ,(0, 0, 255), -1)
             
             #cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 0, 255), 2)
             if(((abs(center_x-prev_centerX)<30 and abs(center_y-prev_centerY)<30) or prev_centerX==0) and Acc_Wheel<10):
@@ -221,15 +252,24 @@ while(True):
                 if(Find_Front[0] == False):
                     Find_Front = [True, center_x, center_y, frame_count, index_min, center_x, center_y]#offsetx offsety
                     prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
+                    print(frame_count)
+                    
+                    #======檢測點
+                    line_list[0] = [[center_x, Upper_int],[center_x, center_y]]
+                    Inspection_pt[0][0] = True
+                    ColCount+=1
+
                 elif(Find_Back[0] == False):
                     if(np.min(dist)>50):
                         prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
-                    else:
-                        Find_Back = [True, center_x, center_y, frame_count, index_min,center_x, center_y]#offsetx offsety
+                    else:#找到後輪
+                        Find_Back = [True, center_x, center_y, frame_count, index_min, center_x, center_y]#offsetx offsety
+                        #print(frame_count)
+                        
                     #cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
                 #print(Golden_Pt[index_min])
-                cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
-                print(prev_centerX, prev_centerY)
+                #cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
+                #print(prev_centerX, prev_centerY)
 
             else:
                 missing+=1
@@ -260,7 +300,7 @@ while(True):
                 
                 Find_Wheel[5], Find_Wheel[6] = Find_Wheelx, Find_Wheely
                 #cv2.circle(new_image, (Golden_Pt[Find_Wheel[4]][0]+Wheeloffsetx, Golden_Pt[Find_Wheel[4]][1]+Wheeloffsety), 10 ,(0, 0, 0), -1)
-                cv2.circle(new_image, (Find_Wheelx, Find_Wheely), 10 ,(255, 255, 255), -1)
+                #cv2.circle(new_image, (Find_Wheelx, Find_Wheely), 10 ,(255, 255, 255), -1)
                 #if(frame_count==1200):
                 # if(Find_Wheelx<=412):
                 #     print(Find_Wheelx, Find_Wheely)
@@ -269,109 +309,106 @@ while(True):
                 #存前後輪座標
                 Wheel_Pt.append([Find_Wheelx, Find_Wheely])
 
-    
 
-    # if(frame_count==900):
-    #     print(Find_Wheelx, Find_Wheely)
-    #     cv2.imwrite('Test\\temp4.jpg', frame)     
-    #     exit(0)       
-
-    '''
-    # 畫上檢測點 [triggerx, triggery, velocity, a,(x,y), GoldenFrame]
-    for i in range(len(Inspection_pt)):
-        triggerx, triggery, a, x, y, GoldenFrame = Inspection_pt[i][0], Inspection_pt[i][1],  Inspection_pt[i][3],Inspection_pt[i][4][0],Inspection_pt[i][4][1],Inspection_pt[i][5]
-
-        if(Find_Front[0] == True and Find_Wheelx<triggerx):
-
-            # cv2.imwrite('Test\\temp5.jpg', frame)     
-            # exit(0)
-            
-            #算檢測點移動
-            Inspection_pt_offset_x, Inspection_pt_offset_y = Find_Wheelx - triggerx, Find_Wheely - triggery
-            
-            cv2.circle(new_image, (int(x + Inspection_pt_offset_x-Inspection_pt[i][2]), y + Inspection_pt_offset_y), 10, (255, 0, 255), -1)
-            Inspection_pt[i][2]+=a
-    '''        
-    #=======================================畫檢測點===========================================
-
-    #[triggerx, triggery,(x,y),frame累積offset, GoldenFrame]
-    for i in range(len(Inspection_pt)):
-        print(Inspection_pt[i][0], Inspection_pt[i][1],Inspection_pt[i][2][0],Inspection_pt[i][2][1],Inspection_pt[i][-1])
-        triggerx, triggery, x, y, GoldenFrame = Inspection_pt[i][0], Inspection_pt[i][1],Inspection_pt[i][2][0],Inspection_pt[i][2][1],Inspection_pt[i][-1]
-
-        
-        if(Find_Front[0] == True and Find_Front[5]<triggerx):#Find_Front[5]: 前輪現在的x
-
-            # cv2.imwrite('Test\\temp5.jpg', frame)     
-            # exit(0)
-            #算檢測點移動，Inspection_pt[i][5]紀錄了檢測點一開始到現在經過幾個frame
-            GoldenX, GoldenY, Golden_Start_Frame = Golden[GoldenFrame][0], Golden[GoldenFrame][1], Golden[GoldenFrame][2]
-            Inspection_pt_offset_x = Golden[GoldenFrame+Inspection_pt[i][3]][0] - GoldenX
-            Inspection_pt_offset_y = Golden[GoldenFrame+Inspection_pt[i][3]][1] - GoldenY
-
-            Inspection_pt_offset_x = Inspection_pt_offset_x+Inspection_pt[i][5]
-            #Inspection_pt[i][5] += Inspection_pt[i][6]#加速度
-            #print(Inspection_pt[i][5], Inspection_pt[i][6],Inspection_pt[i][3])
-            cv2.circle(new_image, (x + Inspection_pt_offset_x, y + Inspection_pt_offset_y), 10, (255, 0, 255), -1)
-            Inspection_pt[i][3]+=1#累積frame
-            
-            # #補償回去最接近的frame
-            # if(Golden[GoldenFrame][0]<=(x + Inspection_pt_offset_x) and Inspection_pt[i][4]==False):
-            #     print("===================================")
-            #     Inspection_pt[i][3] = 0
-            #     Inspection_pt[i][4] = True
-
-        
     Upper-=0.025
     Upper_int = int(Upper)
 
     Door = np.array([])
-    x_min, y_min = 0, 0
+
     if(len(Wheel_Pt)==0):# not find the wheel
-        print("Not find the wheel")
+        #print("Not find the wheel")
         pass
     elif(len(Wheel_Pt)==1):# not find the wheel
-        print("find front wheel")
-        cv2.rectangle(new_image, (Wheel_Pt[0][0], Upper_int), (frame.shape[1], frame.shape[0]), (255, 0, 0), 2)
+        #print("find front wheel")
+        #cv2.rectangle(new_image, (Wheel_Pt[0][0], Upper_int), (frame.shape[1], frame.shape[0]), (255, 0, 0), 2)
         
         Door = np.array(frame[Upper_int:frame.shape[0],Wheel_Pt[0][0]:frame.shape[1]])
-        x_min, y_min = Wheel_Pt[0][0], Upper_int
 
-
-
+        #用現在的xmin-前一個x_min
+        if(x_min!=0):
+            inspection_v =Wheel_Pt[0][0]- x_min
+        #inspection_v-=0.05
+        y_min, y_max = Upper_int, frame.shape[0]
+        x_min, x_max = Wheel_Pt[0][0], frame.shape[1]
+        
     elif(len(Wheel_Pt)==2):# find the both wheel
-        print("find both wheel")
-        cv2.rectangle(new_image, (Wheel_Pt[0][0], Upper_int), (Wheel_Pt[1][0], Wheel_Pt[1][1]), (255, 0, 0), 2)
+        #print("find both wheel")
+        #cv2.rectangle(new_image, (Wheel_Pt[0][0], Upper_int), (Wheel_Pt[1][0], Wheel_Pt[1][1]), (255, 0, 0), 2)
         Door = np.array(frame[Upper_int:Wheel_Pt[1][1], Wheel_Pt[0][0]:Wheel_Pt[1][0]])
-        x_min, y_min = Wheel_Pt[0][0], Upper_int
+        #用現在的xmin-前一個x_min
+        if(x_min!=0):
+            inspection_v =Wheel_Pt[0][0]- x_min
+        #inspection_v-= 0.2
+        y_min, y_max = Upper_int, Wheel_Pt[1][1]
+        x_min, x_max = Wheel_Pt[0][0], Wheel_Pt[1][0]
 
 
 
-    # if(len(Door)>0):
-    #     #segmentation
-    #     #cv2.imwrite('temp\Door{}.jpg'.format(second), Door) 
-    #     Prev_Window_List, Prev_Door_List = window_contour_list, door_contour_list
-    #     window_contour_list, door_contour_list = Car_Window_and_Door_Extract_Lib.process_the_image(Door)
-    #     if(len(window_contour_list)==0):
-    #         window_contour_list = Prev_Window_List
+    #=======================================畫檢測點===========================================
+    if(Wheel_Find_List[1][0]==False):#還沒找到後輪
+        # 77    # 136    # 201    # 252    # 299    # 334    # 362    # 393            
+        #先看看觸發新的點col了沒
+        #Now position - Start Position
+        if((Find_Front[1]-Find_Front[5]) >IntervalAcc and (Find_Front[1]-Find_Front[5])<300 and ColCount<6):
+            Interval -=15         
+            IntervalAcc+=Interval
+            #print("===",IntervalAcc)
 
-    #     if(len(door_contour_list)==0):
-    #         door_contour_list = Prev_Door_List        
+            #===先算初始位置
+            #x = int(x_max-((x_max-x_min)/(ColCount)))
+            line_list[ColCount] = [[760, y_min],[760, y_max]]
+            #=============
+            Inspection_pt[ColCount][0] = True
+            ColCount+=1
+            
+        #print(Inspection_pt[0])
+        #print(line_list[0])
+        #算出新的col位置
+        for i in range(len(Inspection_pt)):
+            
+            if(Inspection_pt[i][0]==True):
+                line_list[i][0][0] = line_list[i][1][0] =  int(line_list[i][0][0] + inspection_v)
+                line_list[i][1][1] = bottom_line(line_list[i][1][0])
+                if(i<3):
+                    line_list[i][0][1] = line_list[i][1][1]-150-90*i#line_list[i][1][1]-150-100*i
+                    # if(i==2):
+                    #     print(line_list[i][0][1])
+                    #     exit(0)
+                else:
+                    line_list[i][0][1] = 300#280
+                #print(line_list[i])
+                #cv2.line(new_image, tuple(line_list[i][0]),tuple(line_list[i][1]), (0,250,250),3)
+                # 整條線去算
 
-        #new_image = Car_Window_and_Door_Extract_Lib.draw_window_and_door(x_min, y_min, window_contour_list, door_contour_list, new_image)
+                #for j in range(1,):
+
+    else:#找到後輪了 用九等分演算法
+        inspection_temp_inteval = (x_max-x_min)/6
+        for i in range(len(Inspection_pt)):
+            tempx = int(x_min+i*inspection_temp_inteval)
+            line_list[i][0][0] = line_list[i][1][0] = tempx
+            line_list[i][1][1] = bottom_line(tempx)
+            if(i==0):
+                line_list[i][0][1] = line_list[i][1][1]-150
+            else:
+                line_list[i][0][1] = y_min
+            #cv2.line(new_image, tuple(line_list[i][0]),tuple(line_list[i][1]), (0,250,250),3)
+        
+
+    #畫圖
+    for i in range(len(Inspection_pt)):
+        if(Inspection_pt[i][0]==True):
+            number_of_pt = len(Inspection_pt[i])-1
+            interval_now = (line_list[i][1][1]-line_list[i][0][1])/number_of_pt
+
+            for j in range(len(Inspection_pt[i])-1):
+                cv2.circle(new_image, (line_list[i][0][0], int(line_list[i][0][1]+interval_now*j)), 4 ,(150, 150, 150), -1)
+            #cv2.line(new_image, tuple(),tuple(), (0,250,250),3)
 
 
     cv2.imshow('frame', new_image)
 
-    # new_frame_time = time.time()
-    # Calculating the fps
-    # fps will be number of frame processed in given time frame
-    # since their will be most of time error of 0.001 second
-    # we will be subtracting it to get more accurate result
-    # fps = 1/(new_frame_time-prev_frame_time)
-    # prev_frame_time = new_frame_time
-            
-    # print(fps)
+
 
     #print(Wheel_Record)
     # 若按下 q 鍵則離開迴圈
@@ -379,83 +416,3 @@ while(True):
         #np.save('table.npy', np.array(Wheel_Record))
         break
 
-
-'''
-
-
-
-    
-    Wheel_List = sorted(Wheel_List,key=lambda l:l[1])
-
-
-
-    for i in range(len(Wheel_List)):
-        object_detected = Wheel_List[i][0]
-        cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (0, 0, 255), 2)
-
-    if(len(Wheel_List)>=2):
-        center_x = (Wheel_List[-1][1]+Wheel_List[-2][1])//2
-        center_y =(Wheel_List[-1][2]+Wheel_List[-2][2])//2
-        cv2.rectangle(new_image, (center_x-20, center_y-20), (center_x+20, center_y+20), (255, 0, 255), 2)
-        roi = np.array(frame[center_y-20:center_y+20, center_x-20:center_x+20])
-        roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-        #cv2.imwrite('temp\Door{}.jpg'.format(second), roi)     
-        h, s, v = np.mean(roi[:,:,0]), np.mean(roi[:,:,1]), np.mean(roi[:,:,2])
-        
-        print(h, " ", s, " ", v)
-        #55.200625   52.598125   167.945625
-        #57.434375   50.068125   176.843125
-        #51.87125   52.93375   149.01125
-        #cv2.circle(new_image, (center_x, center_y), 10, (255, 0, 255), -1)
-        if(h< 68 and h > 45 and s > 40 and s < 60):
-            object_detected = Wheel_List[-1][0]
-            cv2.rectangle(new_image, (object_detected[0], object_detected[1]), (object_detected[2], object_detected[3]), (255, 0, 255), 2)
-            #print("ss")
-            Wheel_List = [Wheel_List[-1]]
-
-    if(len(Wheel_List)==1):#只有一顆輪胎，判斷可能是前車輪
-        
-        center_x = (Wheel_List[0][1]+frame.shape[1])//2
-        center_y =(Wheel_List[0][2]+frame.shape[0])//2
-        cv2.rectangle(new_image, (center_x-20, center_y-20), (center_x+20, center_y+20), (255, 255, 255), 2)
-        
-        #cv2.line(new_image, (Wheel_List[0][1],Wheel_List[0][2]), (frame.shape[1], frame.shape[0]), (255, 0, 255), 2)
-        
-        roi = np.array(frame[center_y-20:center_y+20, center_x-20:center_x+20])
-        roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-        h, s, v = np.mean(roi[:,:,0]), np.mean(roi[:,:,1]), np.mean(roi[:,:,2])
-
-        if (not (h< 68 and h > 45 and s > 40 and s < 60)):#如果是中心點是車身
-            #print(h, " ", s, " ", v)
-            Wheel_List.append([[], frame.shape[1], frame.shape[1]])
-    
-    if(len(Wheel_List)>=2):
-        cv2.rectangle(new_image, (Wheel_List[-2][1],300), (Wheel_List[-1][1], Wheel_List[-1][2]), (0, 255, 0), 2)
-
-
-
-
-
-    # # if find some door
-    # if(len(Door_List)):
-    #     x_min = min(Door_List, key=lambda x: x[0])[0]
-    #     y_min = min(Door_List, key=lambda x: x[1])[1]
-    #     x_max = max(Door_List, key=lambda x: x[2])[2]
-    #     y_max = max(Door_List, key=lambda x: x[3])[3]
-    #     #print(x_min," ", y_min, "", x_max," ", y_max)
-    #     cv2.rectangle(new_image, (x_min, y_min), (x_max, y_max), (0, 255, 255), 5)
-    #     Door = np.array(frame[y_min:y_max,x_min:x_max])
-        
-        
-    #     #cv2.imwrite('temp\Door{}.jpg'.format(second), Door)
-    #     Prev_Window_List, Prev_Door_List = window_contour_list, door_contour_list
-    #     window_contour_list, door_contour_list = Car_Window_and_Door_Extract_Lib.process_te_image(Door)
-    #     if(len(window_contour_list)==0):
-    #         window_contour_list = Prev_Window_List
-
-    #     if(len(door_contour_list)==0):
-    #         door_contour_list = Prev_Door_List        
-
-    #     new_image = Car_Window_and_Door_Extract_Lib.draw_window_and_door(x_min, y_min, window_contour_list, door_contour_list, new_image)
-                
-'''

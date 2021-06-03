@@ -140,11 +140,11 @@ def draw_contour_of_the_car_window(contour_img):
 
     #沒找到窗戶或車門 直接return
     if(len(window_extRight_list) == 0 or len(door_bottom[0])==0):
-        return np.ones_like(contour_img, dtype=np.uint8), window_contour_list, -1                
-                
+        return np.ones_like(contour_img, dtype=np.uint8), window_contour_list, -1
+
     #畫車門
     #cv.drawContours(original_img, door_bottom, 0, (255,0,0), -1)
-    cv.drawContours(door_guided_image, door_bottom, 0, (0,0,0), -1)                
+    cv.drawContours(door_guided_image, door_bottom, 0, (0,0,0), -1)
 
     
     #畫車窗最右邊的點
