@@ -30,6 +30,7 @@ from Get_File_Paths import GetFileList
 import random
 
 import time
+import tensorflow as tf
 
 image_test_folder = ''
 model_weights = 'Model_Weights\\trained_weights_final.h5'
@@ -46,6 +47,13 @@ with open(classes_path) as f:
 class_list = [x.replace('\n','') for x in class_list]
 
 print(class_list)
+
+
+config = tf.ConfigProto()
+config.gpu_options.allow_growth=True #Not all occupy the video memory, allocated according to need
+sess = tf.Session(config=config)
+        
+
 yolo = YOLO(
     **{
         "model_path": model_weights,
@@ -110,9 +118,85 @@ Upper = 300
 x_min, y_min = 0, 0
 x_max, y_max = 0, 0
 inspection_v = 0
-
+M_operator = (0,0)
 def bottom_line(x):
     return int(-((650-x)*400/650-680))
+
+def find_operator(image, lastM):
+    # threshold
+    imagecopy = image.copy()
+    imagecopy = cv2.blur(imagecopy,(5,5))
+    imagecopy = cv2.cvtColor(imagecopy, cv2.COLOR_BGR2HSV)
+    imagecopy = cv2.inRange(imagecopy, (101, 139, 57), (126, 255, 255))
+    kernel = np.ones((13,13),np.uint8) 
+    imagecopy = cv2.morphologyEx(imagecopy, cv2.MORPH_CLOSE, kernel) 
+    
+    #contour
+    contours, hierarchy = cv2.findContours(imagecopy, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    area_low_threshold = 3000
+    area_high_threshold = 100000
+    areamax = [0,-1]#[max area, index of max area]
+    cXmax,cYmax = 0,0
+    for i in range(len(contours)):  
+        area = cv2.contourArea(contours[i])
+        M_temp = cv2.moments(contours[i])
+        if M_temp["m00"] != 0:
+            cX_temp, cY_temp = int(M_temp["m10"] / M_temp["m00"]), int(M_temp["m01"] / M_temp["m00"]) 
+        else:
+            cX_temp, cY_temp = (0,0)
+        if area>area_low_threshold and area<area_high_threshold:
+            #先找距離超近的，一定就是
+            if(lastM!=(0,0)):
+                dist_temp = np.linalg.norm(np.array(lastM)-np.array((cX_temp,cY_temp)))
+                if(dist_temp<50):
+                    return [contours[i]], (cX_temp, cY_temp)
+            #找面積最大的
+            elif area>areamax[0]:
+                areamax = [area, i]
+                cXmax, cYmax = cX_temp, cY_temp
+    
+    #cv2.drawContours(image, contours, areamax[-1], (255,0,255), -1)
+    return [contours[areamax[-1]]], (cXmax, cYmax)
+
+
+def ComputeInspection(operator_now, Inspection_pt, operator_offsety, threshold, inspected_threshold):
+    x_min,y_min,w,h = cv2.boundingRect(operator_now[0])
+    y_min += operator_offsety
+    x_min -= threshold
+    y_min -= threshold
+    x_max = x_min + w + 2*threshold
+    y_max = y_min + h + 2*threshold
+
+    for i in range(len(Inspection_pt)):
+        if(Inspection_pt[i][0]==True):
+            for j in range(1, len(Inspection_pt[i])):
+                pt = Inspection_pt[i][j][1]
+                if(Inspection_pt[i][j][0] == False):
+                    if(pt[0] < x_max and pt[0] > x_min and pt[1] < y_max and pt[1] > y_min):
+                        Inspection_pt[i][j][2]+=1
+                        if(Inspection_pt[i][j][2]>=inspected_threshold):
+                            Inspection_pt[i][j][0] = True
+                    else:
+                        Inspection_pt[i][j][2] = 0
+        
+
+def ComputeScore(Inspection_pt):
+    inspection_point_number = 0
+    total_point_number = 0
+    for i in range(len(Inspection_pt)):
+        total_point_number+= len(Inspection_pt[i])-1
+        if(Inspection_pt[i][0]==True):
+            for j in range(1, len(Inspection_pt[i])):
+                if(Inspection_pt[i][j][0]==True):
+                    inspection_point_number+=1
+
+    if(total_point_number==0):
+        return 0
+    else:
+        return int(inspection_point_number*100/total_point_number)
+
+
+            
     
 
 #當前輪x>多少的時候，這個點會開始出現 [x, v,(點)] v是速度
@@ -128,13 +212,15 @@ def bottom_line(x):
 #                 ]
 
 # valid col [already insepction, point position]
+
 Inspection_pt = [
-                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
-                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
-                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
-                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
-                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
-                [False,[0,(0,0)],[0,(0,0)],[0,(0,0)],[0,(0,0)]],
+                #[ColumnValid, [Detected,Location,AccFrame]]
+                [False,[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0]],
+                [False,[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0]],
+                [False,[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0]],
+                [False,[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0]],
+                [False,[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0]],
+                [False,[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0],[False, (0,0), 0]],
     
                 ]  
 line_list = [[],[],[],[],[],[]]     
@@ -144,16 +230,16 @@ ColCount = 0
 #====
 Golden_Pt = np.array(Golden_Pt)
 #====
-for i in range(len(Inspection_pt)):
-    #dist = np.linalg.norm([Inspection_pt[i][2][0]]-Golden_Pt[:,0], axis=0)
-    dist = abs(Inspection_pt[i][2][0]-Golden_Pt[:,0])
-    # print(Golden_Pt[:,0])
-    # print(Inspection_pt[i][2][0])
-    # print(dist)
-    index_min = np.argmin(dist)
-    Inspection_pt[i].append(index_min)
-    #print(Golden_Pt[index_min])
-# print(Inspection_pt)
+# for i in range(len(Inspection_pt)):
+#     #dist = np.linalg.norm([Inspection_pt[i][2][0]]-Golden_Pt[:,0], axis=0)
+#     dist = abs(Inspection_pt[i][2][0]-Golden_Pt[:,0])
+#     # print(Golden_Pt[:,0])
+#     # print(Inspection_pt[i][2][0])
+#     # print(dist)
+#     index_min = np.argmin(dist)
+#     Inspection_pt[i].append(index_min)
+#     #print(Golden_Pt[index_min])
+# # print(Inspection_pt)
 
 #exit(0)
 
@@ -167,7 +253,7 @@ while(True):
 
     # cv2.imwrite('test\\temp2.jpg', frame) 
     # exit(0)
-
+    #=======================================找車窗車門===========================================
     frame_count += 1
     # if(frame_count%100==0):
     #     cv2.imwrite('Test\\frame{}.jpg'.format(frame_count), frame)
@@ -251,6 +337,7 @@ while(True):
                 
                 if(Find_Front[0] == False):
                     Find_Front = [True, center_x, center_y, frame_count, index_min, center_x, center_y]#offsetx offsety
+
                     prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
                     print(frame_count)
                     
@@ -264,6 +351,8 @@ while(True):
                         prev_centerX, prev_centerY, missing, Acc_Wheel = 0, 0, 0, 0
                     else:#找到後輪
                         Find_Back = [True, center_x, center_y, frame_count, index_min, center_x, center_y]#offsetx offsety
+                        print(center_x, center_y, index_min)
+                        exit(0)
                         #print(frame_count)
                         
                     #cv2.circle(new_image, (prev_centerX, prev_centerY), 10 ,(0, 255, 255), -1)
@@ -341,7 +430,7 @@ while(True):
         #inspection_v-= 0.2
         y_min, y_max = Upper_int, Wheel_Pt[1][1]
         x_min, x_max = Wheel_Pt[0][0], Wheel_Pt[1][0]
-
+    #endregion
 
 
     #=======================================畫檢測點===========================================
@@ -395,17 +484,42 @@ while(True):
             #cv2.line(new_image, tuple(line_list[i][0]),tuple(line_list[i][1]), (0,250,250),3)
         
 
-    #畫圖
+    #上面找到線了 現在找點
     for i in range(len(Inspection_pt)):
         if(Inspection_pt[i][0]==True):
             number_of_pt = len(Inspection_pt[i])-1
             interval_now = (line_list[i][1][1]-line_list[i][0][1])/number_of_pt
 
             for j in range(len(Inspection_pt[i])-1):
-                cv2.circle(new_image, (line_list[i][0][0], int(line_list[i][0][1]+interval_now*j)), 4 ,(150, 150, 150), -1)
+                #cv2.circle(new_image, (line_list[i][0][0], int(line_list[i][0][1]+interval_now*j)), 4 ,(150, 150, 150), -1)
+                Inspection_pt[i][j+1][1] = (line_list[i][0][0], int(line_list[i][0][1]+interval_now*j))
             #cv2.line(new_image, tuple(),tuple(), (0,250,250),3)
+    #=======================================畫檢測點end===========================================
+    #=======================================找操作員==============================================
+    operator_offsety = 150
+    threshold = 40
+    inspected_threshold = 15
+    operator_now, M_operator = find_operator(frame.copy()[operator_offsety:,], M_operator)
+    cv2.drawContours(new_image, operator_now, 0, (255,0,255), 3, offset = (0,operator_offsety))
+    x,y,w,h = cv2.boundingRect(operator_now[0])
+    y = y + operator_offsety
+    cv2.rectangle(new_image,(x-threshold,y-threshold),(x+w+threshold,y+h+threshold),(0,255,0),2)
 
-
+    #ComputeInspection
+    ComputeInspection(operator_now, Inspection_pt, operator_offsety, threshold, inspected_threshold)
+    
+    #=======================================畫出點===============================================
+    
+    for i in range(len(Inspection_pt)):
+        if(Inspection_pt[i][0]==True):
+            for j in range(1, len(Inspection_pt[i])):
+                if(Inspection_pt[i][j][0]==True):
+                    cv2.circle(new_image, Inspection_pt[i][j][1], 4 ,(0, 150, 0), -1)
+                else:
+                    cv2.circle(new_image, Inspection_pt[i][j][1], 4 ,(150, 150, 150), -1)
+    
+    Nowscore = ComputeScore(Inspection_pt)
+    cv2.putText(new_image, "Score: {}".format(Nowscore), (50, 50), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1.1, (50, 255, 50), 1, cv2.LINE_AA)
     cv2.imshow('frame', new_image)
 
 
